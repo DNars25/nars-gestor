@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { xuiQuery } from '@/lib/xui-db'
 import { xuiApi } from '@/lib/xui-api'
 import { audit } from '@/lib/audit'
-import type { XuiUser } from '@/lib/xui-db'
+import type { XuiLine } from '@/lib/xui-db'
 
 const renewSchema = z.object({
   months: z.number().int().min(1).max(12).default(1),
@@ -25,19 +25,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { months } = parsed.data
 
-  const clients = await xuiQuery<XuiUser>('SELECT * FROM users WHERE id = ? AND admin_enabled = 1', [clientId])
+  const clients = await xuiQuery<XuiLine>('SELECT * FROM lines WHERE id = ? AND admin_enabled = 1', [clientId])
   if (clients.length === 0) {
     return NextResponse.json({ error: 'Cliente não encontrado' }, { status: 404 })
   }
 
   const client = clients[0]
 
-  // Se já expirou, começa da data atual
-  const baseDate = client.exp_date && client.exp_date > Date.now()
+  const nowSec = Math.floor(Date.now() / 1000)
+  // Se já expirou, começa da data atual; exp_date é Unix segundos
+  const baseDate = client.exp_date && client.exp_date > nowSec
     ? client.exp_date
-    : Date.now()
+    : nowSec
 
-  const newExpDate = baseDate + months * 30 * 24 * 60 * 60 * 1000
+  const newExpDate = baseDate + months * 30 * 24 * 60 * 60
 
   try {
     await xuiApi.renewUser(clientId, newExpDate)

@@ -21,30 +21,36 @@ export async function xuiQuery<T = unknown>(
   return rows as T[]
 }
 
-// Tipos do banco XUI
-export interface XuiUser {
+// Tipos do banco XUI — tabela `lines` (clientes IPTV)
+export interface XuiLine {
   id: number
   username: string
   password: string
-  exp_date: number | null
+  exp_date: number | null       // Unix timestamp em segundos (0 = sem expiração)
   enabled: number
   admin_enabled: number
-  reseller_id: number | null
-  created_at: number
+  member_id: number | null      // ID do revendedor dono da linha
+  created_at: number            // Unix timestamp em segundos
   max_connections: number
   is_trial: number
-  bouquet: string
-  user_note: string | null
+  bouquet: string               // JSON mediumtext com IDs de bouquets
+  admin_notes: string | null
+  reseller_notes: string | null
+  contact: string | null
+  last_activity: number | null
 }
 
-export interface XuiUserActivity {
-  user_id: number
+export interface XuiLineActivity {
+  line_id: number
   stream_id: number
   server_id: number
   user_ip: string
   user_agent: string
   date_start: number
 }
+
+// Alias de compatibilidade — remover após refatoração completa
+export type XuiUser = XuiLine
 
 export interface XuiStream {
   id: number

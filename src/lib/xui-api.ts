@@ -78,17 +78,17 @@ async function xuiRequest<T = unknown>(
 // API PÚBLICA DO XUI
 // ========================
 
-export interface XuiCreateUserPayload {
+export interface XuiCreateLinePayload {
   username: string
   password: string
-  exp_date: number // timestamp em ms
+  exp_date: number // Unix timestamp em segundos
   bouquet: string
   max_connections: number
   is_trial?: number
-  reseller_id?: number
+  member_id?: number
 }
 
-export interface XuiUpdateUserPayload {
+export interface XuiUpdateLinePayload {
   id: number
   username?: string
   password?: string
@@ -96,32 +96,36 @@ export interface XuiUpdateUserPayload {
   enabled?: number
   max_connections?: number
   bouquet?: string
-  reseller_id?: number
+  member_id?: number
 }
 
+// Aliases de compatibilidade
+export type XuiCreateUserPayload = XuiCreateLinePayload
+export type XuiUpdateUserPayload = XuiUpdateLinePayload
+
 export const xuiApi = {
-  async createUser(payload: XuiCreateUserPayload) {
-    return xuiRequest('POST', '/user/create', payload as unknown as Record<string, unknown>)
+  async createUser(payload: XuiCreateLinePayload) {
+    return xuiRequest('POST', '/api/line/create', payload as unknown as Record<string, unknown>)
   },
 
-  async updateUser(payload: XuiUpdateUserPayload) {
-    return xuiRequest('POST', '/user/update', payload as unknown as Record<string, unknown>)
+  async updateUser(payload: XuiUpdateLinePayload) {
+    return xuiRequest('POST', '/api/line/update', payload as unknown as Record<string, unknown>)
   },
 
   async deleteUser(id: number) {
-    return xuiRequest('POST', '/user/delete', { id })
+    return xuiRequest('POST', '/api/line/delete', { id })
   },
 
   async blockUser(id: number) {
-    return xuiRequest('POST', '/user/update', { id, enabled: 0 })
+    return xuiRequest('POST', '/api/line/update', { id, enabled: 0 })
   },
 
   async unblockUser(id: number) {
-    return xuiRequest('POST', '/user/update', { id, enabled: 1 })
+    return xuiRequest('POST', '/api/line/update', { id, enabled: 1 })
   },
 
   async renewUser(id: number, newExpDate: number) {
-    return xuiRequest('POST', '/user/update', { id, exp_date: newExpDate })
+    return xuiRequest('POST', '/api/line/update', { id, exp_date: newExpDate })
   },
 
   async getServerStats() {

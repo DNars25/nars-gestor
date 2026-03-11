@@ -15,39 +15,39 @@ export async function GET(req: NextRequest) {
   if (cached) return NextResponse.json(cached)
 
   try {
-    // Totais do XUI
+    // Totais do XUI — tabela `lines` (clientes IPTV)
     const [totalClients] = await xuiQuery<{ total: number }>(
-      'SELECT COUNT(*) as total FROM users WHERE admin_enabled = 1'
+      'SELECT COUNT(*) as total FROM lines WHERE admin_enabled = 1'
     )
 
     const [activeClients] = await xuiQuery<{ total: number }>(
-      'SELECT COUNT(*) as total FROM users WHERE admin_enabled = 1 AND enabled = 1'
+      'SELECT COUNT(*) as total FROM lines WHERE admin_enabled = 1 AND enabled = 1'
     )
 
     const [trialClients] = await xuiQuery<{ total: number }>(
-      'SELECT COUNT(*) as total FROM users WHERE admin_enabled = 1 AND is_trial = 1 AND enabled = 1'
+      'SELECT COUNT(*) as total FROM lines WHERE admin_enabled = 1 AND is_trial = 1 AND enabled = 1'
     )
 
-    // Conexões ativas agora
+    // Conexões ativas agora — tabela `lines_activity`
     const [onlineNow] = await xuiQuery<{ total: number }>(
-      `SELECT COUNT(DISTINCT user_id) as total FROM user_activity
+      `SELECT COUNT(DISTINCT line_id) as total FROM lines_activity
        WHERE date_start > UNIX_TIMESTAMP() - 300`
     )
 
-    // Clientes expirando em 7 dias
-    const sevenDaysMs = Date.now() + 7 * 24 * 60 * 60 * 1000
+    // Clientes expirando em 7 dias (exp_date em segundos Unix)
+    const sevenDaysSec = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60
     const [expiringClients] = await xuiQuery<{ total: number }>(
-      `SELECT COUNT(*) as total FROM users
+      `SELECT COUNT(*) as total FROM lines
        WHERE admin_enabled = 1 AND enabled = 1
        AND exp_date > 0 AND exp_date < ?`,
-      [sevenDaysMs]
+      [sevenDaysSec]
     )
 
-    // Novos clientes nos últimos 30 dias (gráfico)
+    // Novos clientes nos últimos 30 dias (gráfico) — created_at em segundos Unix
     const newClientsChart = await xuiQuery<{ date: string; count: number }>(
-      `SELECT DATE(FROM_UNIXTIME(created_at/1000)) as date, COUNT(*) as count
-       FROM users
-       WHERE admin_enabled = 1 AND created_at > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 30 DAY)) * 1000
+      `SELECT DATE(FROM_UNIXTIME(created_at)) as date, COUNT(*) as count
+       FROM lines
+       WHERE admin_enabled = 1 AND created_at > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 30 DAY))
        GROUP BY date ORDER BY date ASC`
     )
 

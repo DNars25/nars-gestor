@@ -5,7 +5,7 @@ import { xuiQuery } from '@/lib/xui-db'
 import { xuiApi } from '@/lib/xui-api'
 import { audit } from '@/lib/audit'
 import { cacheGet, cacheSet, cacheDel } from '@/lib/redis'
-import type { XuiUser } from '@/lib/xui-db'
+import type { XuiLine } from '@/lib/xui-db'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,12 +48,13 @@ export async function GET(req: NextRequest) {
       params.push(`%${search}%`)
     }
 
+    const nowSec = Math.floor(Date.now() / 1000)
     if (status === 'active') {
       whereClause += ' AND enabled = 1 AND (exp_date = 0 OR exp_date > ?)'
-      params.push(Date.now())
+      params.push(nowSec)
     } else if (status === 'expired') {
       whereClause += ' AND exp_date > 0 AND exp_date < ?'
-      params.push(Date.now())
+      params.push(nowSec)
     } else if (status === 'blocked') {
       whereClause += ' AND enabled = 0'
     } else if (status === 'trial') {
@@ -61,14 +62,14 @@ export async function GET(req: NextRequest) {
     }
 
     const [countResult] = await xuiQuery<{ total: number }>(
-      `SELECT COUNT(*) as total FROM users ${whereClause}`,
+      `SELECT COUNT(*) as total FROM lines ${whereClause}`,
       params
     )
 
-    const clients = await xuiQuery<XuiUser>(
-      `SELECT id, username, password, exp_date, enabled, admin_enabled, reseller_id,
-              created_at, max_connections, is_trial, bouquet, user_note
-       FROM users ${whereClause}
+    const clients = await xuiQuery<XuiLine>(
+      `SELECT id, username, password, exp_date, enabled, admin_enabled, member_id,
+              created_at, max_connections, is_trial, bouquet, admin_notes, reseller_notes, contact
+       FROM lines ${whereClause}
        ORDER BY created_at DESC
        LIMIT ? OFFSET ?`,
       [...params, limit, offset]
@@ -108,12 +109,12 @@ export async function POST(req: NextRequest) {
   const { username, password, expDays, bouquet, maxConnections, isTrial } = parsed.data
 
   // Verificar se username já existe no XUI
-  const existing = await xuiQuery<XuiUser>('SELECT id FROM users WHERE username = ?', [username])
+  const existing = await xuiQuery<XuiLine>('SELECT id FROM lines WHERE username = ?', [username])
   if (existing.length > 0) {
     return NextResponse.json({ error: 'Nome de usuário já existe' }, { status: 409 })
   }
 
-  const expDate = Date.now() + expDays * 24 * 60 * 60 * 1000
+  const expDate = Math.floor(Date.now() / 1000) + expDays * 24 * 60 * 60
 
   const ip = req.headers.get('x-forwarded-for') || undefined
   const ua = req.headers.get('user-agent') || undefined

@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { xuiQuery } from '@/lib/xui-db'
 import { xuiApi } from '@/lib/xui-api'
 import { audit } from '@/lib/audit'
-import type { XuiUser } from '@/lib/xui-db'
+import type { XuiLine } from '@/lib/xui-db'
 
 const trialSchema = z.object({
   packageType: z.enum(['COMPLETO', 'SEM_ADULTO']).default('COMPLETO'),
@@ -40,10 +40,10 @@ export async function POST(req: NextRequest) {
   }
 
   const { username, password } = generateTrialCredentials()
-  const expDate = Date.now() + durationHours * 60 * 60 * 1000
+  const expDate = Math.floor(Date.now() / 1000) + durationHours * 60 * 60
 
   // Garantir username único
-  const existing = await xuiQuery<XuiUser>('SELECT id FROM users WHERE username = ?', [username])
+  const existing = await xuiQuery<XuiLine>('SELECT id FROM lines WHERE username = ?', [username])
   if (existing.length > 0) {
     return NextResponse.json({ error: 'Tente novamente' }, { status: 409 })
   }
