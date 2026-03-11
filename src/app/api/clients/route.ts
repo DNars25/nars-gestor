@@ -12,10 +12,13 @@ export const dynamic = 'force-dynamic'
 const createClientSchema = z.object({
   username: z.string().min(3).max(50).regex(/^[a-zA-Z0-9_]+$/),
   password: z.string().min(4).max(100),
-  expDays: z.number().int().min(1).max(365),
+  expDays: z.number().int().min(1).max(365).optional(),
+  expHours: z.number().int().min(1).max(72).optional(),
   bouquet: z.string().default('1'),
   maxConnections: z.number().int().min(1).max(10).default(1),
   isTrial: z.boolean().default(false),
+}).refine(d => d.expDays !== undefined || d.expHours !== undefined, {
+  message: 'expDays ou expHours é obrigatório',
 })
 
 // GET - Listar clientes
@@ -106,7 +109,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { username, password, expDays, bouquet, maxConnections, isTrial } = parsed.data
+  const { username, password, expDays, expHours, bouquet, maxConnections, isTrial } = parsed.data
 
   // Verificar se username já existe no XUI
   const existing = await xuiQuery<XuiLine>('SELECT id FROM `lines` WHERE username = ?', [username])
@@ -114,7 +117,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Nome de usuário já existe' }, { status: 409 })
   }
 
-  const expDate = Math.floor(Date.now() / 1000) + expDays * 24 * 60 * 60
+  const nowSec = Math.floor(Date.now() / 1000)
+  const expDate = expHours
+    ? nowSec + expHours * 3600
+    : nowSec + (expDays ?? 30) * 86400
 
   const ip = req.headers.get('x-forwarded-for') || undefined
   const ua = req.headers.get('user-agent') || undefined

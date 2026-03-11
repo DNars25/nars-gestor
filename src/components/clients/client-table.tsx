@@ -4,33 +4,37 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger
+  DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
-  DialogHeader, DialogTitle
+  DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   MoreHorizontal, RefreshCw, Lock, Unlock, Trash2,
-  Edit, Info, Activity, CheckCircle2, XCircle, Clock
+  Edit, Activity, CheckCircle2, XCircle, Clock, Copy, Link,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useApi } from '@/hooks/use-api'
 import type { XuiUser } from '@/lib/xui-db'
 
+const SERVER_URL = process.env.NEXT_PUBLIC_XUI_SERVER_URL || 'http://149.248.46.167:80'
+
 interface ClientTableProps {
   clients: XuiUser[]
   onRefresh: () => void
 }
+
+// exp_date é timestamp Unix em SEGUNDOS
+function nowSec() { return Math.floor(Date.now() / 1000) }
 
 function getStatus(client: XuiUser): { label: string; className: string; icon: React.ReactNode } {
   if (client.enabled === 0) return {
@@ -43,7 +47,7 @@ function getStatus(client: XuiUser): { label: string; className: string; icon: R
     className: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
     icon: <Clock size={12} />,
   }
-  if (client.exp_date && client.exp_date < Date.now()) return {
+  if (client.exp_date && client.exp_date > 0 && client.exp_date < nowSec()) return {
     label: 'Expirado',
     className: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
     icon: <XCircle size={12} />,
@@ -57,12 +61,29 @@ function getStatus(client: XuiUser): { label: string; className: string; icon: R
 
 function formatDate(ts: number | null) {
   if (!ts || ts === 0) return '—'
-  return format(new Date(ts), 'dd/MM/yyyy', { locale: ptBR })
+  return format(new Date(ts * 1000), 'dd/MM/yyyy', { locale: ptBR })
+}
+
+function getDaysRemaining(ts: number | null): number | null {
+  if (!ts || ts === 0) return null
+  const diff = ts - nowSec()
+  if (diff <= 0) return 0
+  return Math.ceil(diff / 86400)
 }
 
 function isExpiringSoon(ts: number | null): boolean {
   if (!ts || ts === 0) return false
-  return ts > Date.now() && ts < Date.now() + 7 * 24 * 60 * 60 * 1000
+  const n = nowSec()
+  return ts > n && ts < n + 7 * 86400
+}
+
+function getM3uLink(username: string, password: string) {
+  return `${SERVER_URL}/get.php?username=${username}&password=${password}&type=m3u_plus&output=ts`
+}
+
+function copy(text: string, label: string) {
+  navigator.clipboard.writeText(text)
+  toast.success(`${label} copiado!`)
 }
 
 export function ClientTable({ clients, onRefresh }: ClientTableProps) {
@@ -70,6 +91,7 @@ export function ClientTable({ clients, onRefresh }: ClientTableProps) {
   const [deleteDialog, setDeleteDialog] = useState<XuiUser | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [renewDialog, setRenewDialog] = useState<{ client: XuiUser; months: number } | null>(null)
+  const [linkDialog, setLinkDialog] = useState<XuiUser | null>(null)
   const [loading, setLoading] = useState<Record<number, boolean>>({})
 
   function setClientLoading(id: number, val: boolean) {
@@ -146,7 +168,7 @@ export function ClientTable({ clients, onRefresh }: ClientTableProps) {
               <TableHead className="text-white/45 text-[12px] font-semibold uppercase tracking-wider py-4 px-5">Usuário</TableHead>
               <TableHead className="text-white/45 text-[12px] font-semibold uppercase tracking-wider py-4">Senha</TableHead>
               <TableHead className="text-white/45 text-[12px] font-semibold uppercase tracking-wider py-4">Vencimento</TableHead>
-              <TableHead className="text-white/45 text-[12px] font-semibold uppercase tracking-wider py-4">Conexões</TableHead>
+              <TableHead className="text-white/45 text-[12px] font-semibold uppercase tracking-wider py-4">Conn.</TableHead>
               <TableHead className="text-white/45 text-[12px] font-semibold uppercase tracking-wider py-4">Status</TableHead>
               <TableHead className="text-white/45 text-[12px] font-semibold uppercase tracking-wider py-4 pr-5 text-right">Ações</TableHead>
             </TableRow>
@@ -155,6 +177,7 @@ export function ClientTable({ clients, onRefresh }: ClientTableProps) {
             {clients.map(client => {
               const status = getStatus(client)
               const expiring = isExpiringSoon(client.exp_date)
+              const daysLeft = getDaysRemaining(client.exp_date)
               const isLoading = loading[client.id]
               return (
                 <TableRow
@@ -176,7 +199,19 @@ export function ClientTable({ clients, onRefresh }: ClientTableProps) {
                     {client.password}
                   </TableCell>
                   <TableCell className={cn('text-[14px] py-4', expiring ? 'text-orange-400 font-medium' : 'text-white/65')}>
-                    {formatDate(client.exp_date)}
+                    <span>{formatDate(client.exp_date)}</span>
+                    {daysLeft !== null && (
+                      <span className={cn(
+                        'ml-2 text-[11px] px-1.5 py-0.5 rounded-md font-medium',
+                        daysLeft === 0
+                          ? 'text-red-400 bg-red-500/10'
+                          : daysLeft <= 7
+                          ? 'text-orange-400 bg-orange-500/10'
+                          : 'text-white/30 bg-white/5'
+                      )}>
+                        {daysLeft === 0 ? 'hoje' : `${daysLeft}d`}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-[14px] text-white/65 py-4">
                     {client.max_connections}x
@@ -192,6 +227,18 @@ export function ClientTable({ clients, onRefresh }: ClientTableProps) {
                   </TableCell>
                   <TableCell className="py-4 pr-5 text-right">
                     <div className="flex items-center justify-end gap-1">
+                      {/* Copiar link M3U */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setLinkDialog(client)}
+                        disabled={isLoading}
+                        className="h-9 w-9 p-0 text-white/40 hover:text-blue-400 hover:bg-blue-500/10 rounded-xl"
+                        title="Ver link da lista"
+                      >
+                        <Link size={15} />
+                      </Button>
+
                       <Button
                         size="sm"
                         variant="ghost"
@@ -229,11 +276,24 @@ export function ClientTable({ clients, onRefresh }: ClientTableProps) {
                           align="end"
                           className="bg-[#1a1e29] border-white/10 text-white min-w-[180px]"
                         >
+                          <DropdownMenuItem
+                            onClick={() => copy(getM3uLink(client.username, client.password), 'Link M3U')}
+                            className="hover:bg-blue-500/10 cursor-pointer gap-2.5 py-2.5 text-[13px] text-blue-400"
+                          >
+                            <Copy size={14} /> Copiar Link M3U
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => copy(
+                              `Servidor: ${SERVER_URL}\nUsuário: ${client.username}\nSenha: ${client.password}`,
+                              'Dados Xtream'
+                            )}
+                            className="hover:bg-blue-500/10 cursor-pointer gap-2.5 py-2.5 text-[13px] text-blue-400"
+                          >
+                            <Copy size={14} /> Copiar Xtream
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-white/8" />
                           <DropdownMenuItem className="hover:bg-white/6 cursor-pointer gap-2.5 py-2.5 text-[13px]">
                             <Edit size={14} className="text-white/50" /> Editar Linha
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="hover:bg-white/6 cursor-pointer gap-2.5 py-2.5 text-[13px]">
-                            <Info size={14} className="text-white/50" /> Informações
                           </DropdownMenuItem>
                           <DropdownMenuItem className="hover:bg-white/6 cursor-pointer gap-2.5 py-2.5 text-[13px]">
                             <Activity size={14} className="text-white/50" /> Log da Linha
@@ -262,6 +322,90 @@ export function ClientTable({ clients, onRefresh }: ClientTableProps) {
           </TableBody>
         </Table>
       </div>
+
+      {/* Link Dialog */}
+      {linkDialog && (
+        <Dialog open={!!linkDialog} onOpenChange={() => setLinkDialog(null)}>
+          <DialogContent className="bg-[#13161d] border-white/10 text-white max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Link size={18} className="text-blue-400" />
+                Links de Acesso
+              </DialogTitle>
+              <DialogDescription className="text-white/50 font-mono text-[13px]">
+                {linkDialog.username}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3">
+              {/* Credenciais */}
+              <div className="bg-white/4 border border-white/8 rounded-xl p-4 space-y-3">
+                <p className="text-[10px] text-white/35 uppercase tracking-widest font-semibold">Credenciais</p>
+                {[
+                  { label: 'Usuário', value: linkDialog.username },
+                  { label: 'Senha', value: linkDialog.password },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] text-white/40">{label}</p>
+                      <p className="font-mono text-[14px] text-white font-semibold">{value}</p>
+                    </div>
+                    <button
+                      onClick={() => copy(value, label)}
+                      className="text-white/30 hover:text-white/70 p-1.5 rounded-lg hover:bg-white/8 transition-colors"
+                    >
+                      <Copy size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* M3U */}
+              <div className="bg-white/4 border border-white/8 rounded-xl p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-white/35 uppercase tracking-widest font-semibold mb-1.5">Link M3U</p>
+                    <p className="font-mono text-[10px] text-white/55 break-all leading-relaxed">
+                      {getM3uLink(linkDialog.username, linkDialog.password)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => copy(getM3uLink(linkDialog.username, linkDialog.password), 'Link M3U')}
+                    className="flex-shrink-0 mt-0.5 text-white/30 hover:text-white/70 p-1.5 rounded-lg hover:bg-white/8 transition-colors"
+                  >
+                    <Copy size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Xtream */}
+              <div className="bg-white/4 border border-white/8 rounded-xl p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 text-[12px] space-y-1">
+                    <p className="text-[10px] text-white/35 uppercase tracking-widest font-semibold mb-2">Xtream Codes</p>
+                    <p><span className="text-white/40">Servidor: </span><span className="font-mono text-white/65">{SERVER_URL}</span></p>
+                    <p><span className="text-white/40">Usuário: </span><span className="font-mono text-white/65">{linkDialog.username}</span></p>
+                    <p><span className="text-white/40">Senha: </span><span className="font-mono text-white/65">{linkDialog.password}</span></p>
+                  </div>
+                  <button
+                    onClick={() => copy(
+                      `Servidor: ${SERVER_URL}\nUsuário: ${linkDialog.username}\nSenha: ${linkDialog.password}`,
+                      'Dados Xtream'
+                    )}
+                    className="flex-shrink-0 text-white/30 hover:text-white/70 p-1.5 rounded-lg hover:bg-white/8 transition-colors"
+                  >
+                    <Copy size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <Button onClick={() => setLinkDialog(null)} className="w-full bg-white/8 hover:bg-white/12 text-white/70 hover:text-white">
+              Fechar
+            </Button>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Renovar Dialog */}
       <Dialog open={!!renewDialog} onOpenChange={() => setRenewDialog(null)}>
