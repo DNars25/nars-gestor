@@ -94,8 +94,10 @@ export async function POST(req: NextRequest) {
 
   response.cookies.set('refresh_token', refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    // secure: false em HTTP — o VPS roda sem TLS direto na porta 3000/PM2
+    // Se adicionar HTTPS via Nginx no futuro, mudar para: process.env.COOKIE_SECURE === 'true'
+    secure: process.env.COOKIE_SECURE === 'true',
+    sameSite: 'lax',
     maxAge: 7 * 24 * 60 * 60,
     path: '/',
   })

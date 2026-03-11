@@ -4,13 +4,10 @@ let xuiPool: mysql.Pool | null = null
 
 export function getXuiPool(): mysql.Pool {
   if (!xuiPool) {
-    xuiPool = mysql.createPool({
-      uri: process.env.XUI_DB_URL,
-      connectionLimit: 5,
-      waitForConnections: true,
-      queueLimit: 0,
-      connectTimeout: 10000,
-    })
+    const url = process.env.XUI_DB_URL
+    if (!url) throw new Error('XUI_DB_URL não configurado no .env')
+    // mysql2 aceita URI como string direta — NÃO usar { uri: string } (não suportado)
+    xuiPool = mysql.createPool(url)
   }
   return xuiPool
 }

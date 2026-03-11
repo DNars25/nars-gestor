@@ -85,8 +85,9 @@ export async function GET(req: NextRequest) {
     await cacheSet(cacheKey, result, 30)
     return NextResponse.json(result)
   } catch (err) {
-    console.error('Error fetching clients:', err)
-    return NextResponse.json({ error: 'Erro ao buscar clientes' }, { status: 500 })
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[/api/clients GET] Erro:', msg)
+    return NextResponse.json({ error: 'Erro ao buscar clientes', detail: msg }, { status: 500 })
   }
 }
 
