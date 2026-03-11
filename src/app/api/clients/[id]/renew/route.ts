@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { months } = parsed.data
 
-  const clients = await xuiQuery<XuiLine>('SELECT * FROM lines WHERE id = ? AND admin_enabled = 1', [clientId])
+  const clients = await xuiQuery<XuiLine>('SELECT * FROM `lines` WHERE id = ? AND admin_enabled = 1', [clientId])
   if (clients.length === 0) {
     return NextResponse.json({ error: 'Cliente não encontrado' }, { status: 404 })
   }

@@ -27,7 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const clients = await xuiQuery<XuiLine>(
     `SELECT id, username, password, exp_date, enabled, admin_enabled, member_id,
             created_at, max_connections, is_trial, bouquet, admin_notes, reseller_notes, contact
-     FROM lines WHERE id = ? AND admin_enabled = 1`,
+     FROM \`lines\` WHERE id = ? AND admin_enabled = 1`,
     [clientId]
   )
 
@@ -55,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const data = parsed.data
 
   // Buscar estado atual para o audit
-  const [before] = await xuiQuery<XuiLine>('SELECT * FROM lines WHERE id = ?', [clientId])
+  const [before] = await xuiQuery<XuiLine>('SELECT * FROM `lines` WHERE id = ?', [clientId])
   if (!before) return NextResponse.json({ error: 'Cliente não encontrado' }, { status: 404 })
 
   const updatePayload: Record<string, unknown> = { id: clientId }
@@ -99,7 +99,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params
   const clientId = parseInt(id)
 
-  const [before] = await xuiQuery<XuiLine>('SELECT * FROM lines WHERE id = ?', [clientId])
+  const [before] = await xuiQuery<XuiLine>('SELECT * FROM `lines` WHERE id = ?', [clientId])
   if (!before) return NextResponse.json({ error: 'Cliente não encontrado' }, { status: 404 })
 
   try {

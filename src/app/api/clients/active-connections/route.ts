@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
               la.user_ip, la.user_agent, la.date_start,
               UNIX_TIMESTAMP() - la.date_start as duration_seconds
        FROM lines_activity la
-       LEFT JOIN lines l ON l.id = la.line_id
+       LEFT JOIN \`lines\` l ON l.id = la.line_id
        LEFT JOIN streams s ON s.id = la.stream_id
        WHERE la.date_start > UNIX_TIMESTAMP() - 300
        ORDER BY la.date_start DESC

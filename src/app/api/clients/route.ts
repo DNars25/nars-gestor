@@ -62,14 +62,14 @@ export async function GET(req: NextRequest) {
     }
 
     const [countResult] = await xuiQuery<{ total: number }>(
-      `SELECT COUNT(*) as total FROM lines ${whereClause}`,
+      `SELECT COUNT(*) as total FROM \`lines\` ${whereClause}`,
       params
     )
 
     const clients = await xuiQuery<XuiLine>(
       `SELECT id, username, password, exp_date, enabled, admin_enabled, member_id,
               created_at, max_connections, is_trial, bouquet, admin_notes, reseller_notes, contact
-       FROM lines ${whereClause}
+       FROM \`lines\` ${whereClause}
        ORDER BY created_at DESC
        LIMIT ? OFFSET ?`,
       [...params, limit, offset]
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
   const { username, password, expDays, bouquet, maxConnections, isTrial } = parsed.data
 
   // Verificar se username já existe no XUI
-  const existing = await xuiQuery<XuiLine>('SELECT id FROM lines WHERE username = ?', [username])
+  const existing = await xuiQuery<XuiLine>('SELECT id FROM `lines` WHERE username = ?', [username])
   if (existing.length > 0) {
     return NextResponse.json({ error: 'Nome de usuário já existe' }, { status: 409 })
   }

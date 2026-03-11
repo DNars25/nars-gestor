@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   const expDate = Math.floor(Date.now() / 1000) + durationHours * 60 * 60
 
   // Garantir username único
-  const existing = await xuiQuery<XuiLine>('SELECT id FROM lines WHERE username = ?', [username])
+  const existing = await xuiQuery<XuiLine>('SELECT id FROM `lines` WHERE username = ?', [username])
   if (existing.length > 0) {
     return NextResponse.json({ error: 'Tente novamente' }, { status: 409 })
   }
