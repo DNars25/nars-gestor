@@ -1,0 +1,268 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================
+// HIERARQUIA DE USUÁRIOS
+// ========================
+
+enum UserRole {
+  ADMIN
+  INVESTIDOR
+  MASTER
+  REVENDA
+}
+
+enum UserStatus {
+  ATIVO
+  BLOQUEADO
+  SUSPENSO
+}
+
+model User {
+  id            String     @id @default(cuid())
+  username      String     @unique
+  email         String?    @unique
+  passwordHash  String
+  role          UserRole
+  status        UserStatus @default(ATIVO)
+
+  // Hierarquia
+  parentId      String?
+  parent        User?      @relation("UserHierarchy", fields: [parentId], references: [id])
+  children      User[]     @relation("UserHierarchy")
+
+  // XUI sync
+  xuiResellerId Int?       // ID do reg_users no XUI (para revendas)
+
+  // 2FA
+  twoFactorEnabled  Boolean @default(false)
+  twoFactorSecret   String?
+  twoFactorBackupCodes String? @db.Text // JSON array de hashes
+
+  // Créditos
+  credits       Decimal  @default(0) @db.Decimal(10, 2)
+
+  // PIX config
+  pixKey        String?
+  pixKeyType    String? // CPF, CNPJ, EMAIL, TELEFONE, ALEATORIA
+
+  // DNS personalizado
+  customDns     String?
+  customDnsActive Boolean @default(false)
+
+  // Config
+  testDuration  Int     @default(24) // horas
+  telegramChatId String?
+
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastLoginAt   DateTime?
+  lastLoginIp   String?
+
+  // Relações
+  sessions        Session[]
+  creditLogs      CreditLog[]     @relation("CreditLogFrom")
+  creditLogsTo    CreditLog[]     @relation("CreditLogTo")
+  auditLogs       AuditLog[]
+  dnsEntries      DnsEntry[]
+  fraudAlerts     FraudAlert[]
+
+  @@index([parentId])
+  @@index([role])
+  @@map("users_painel")
+}
+
+model Session {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token       String   @unique @db.VarChar(512)
+  refreshToken String  @unique @db.VarChar(512)
+  ipAddress   String?
+  userAgent   String?  @db.Text
+  expiresAt   DateTime
+  refreshExpiresAt DateTime
+  createdAt   DateTime @default(now())
+  revokedAt   DateTime?
+
+  @@index([userId])
+  @@index([token])
+  @@index([refreshToken])
+  @@map("sessions")
+}
+
+// ========================
+// CRÉDITOS E TRANSFERÊNCIAS
+// ========================
+
+enum CreditLogType {
+  COMPRA
+  TRANSFERENCIA
+  BONUS
+  ESTORNO
+  DEDUCAO
+  ADMIN_AJUSTE
+}
+
+model CreditLog {
+  id          String        @id @default(cuid())
+  fromUserId  String?
+  fromUser    User?         @relation("CreditLogFrom", fields: [fromUserId], references: [id])
+  toUserId    String
+  toUser      User          @relation("CreditLogTo", fields: [toUserId], references: [id])
+  amount      Decimal       @db.Decimal(10, 2)
+  type        CreditLogType
+  comment     String        @db.Text
+  balanceBefore Decimal     @db.Decimal(10, 2)
+  balanceAfter  Decimal     @db.Decimal(10, 2)
+  createdAt   DateTime      @default(now())
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([createdAt])
+  @@map("credit_logs")
+}
+
+// ========================
+// AUDIT LOG (IMUTÁVEL)
+// ========================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  action      String   // ex: CLIENT_CREATED, CLIENT_BLOCKED, CREDIT_TRANSFERRED
+  entityType  String?  // ex: CLIENT, RESELLER, MASTER
+  entityId    String?
+  dataBefore  String?  @db.LongText // JSON
+  dataAfter   String?  @db.LongText // JSON
+  ipAddress   String?
+  userAgent   String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ========================
+// CONFIGURAÇÕES DO SISTEMA
+// ========================
+
+model SystemConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @db.LongText
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+
+  @@map("system_config")
+}
+
+// ========================
+// DNS PERSONALIZADO
+// ========================
+
+model DnsEntry {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  domain      String
+  price       Decimal  @db.Decimal(10, 2)
+  active      Boolean  @default(true)
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@map("dns_entries")
+}
+
+// ========================
+// ANTI-FRAUDE
+// ========================
+
+enum FraudAlertStatus {
+  PENDENTE
+  CONFIRMADO
+  FALSO_POSITIVO
+  EM_INVESTIGACAO
+}
+
+model FraudAlert {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id])
+  xuiUserId1  Int
+  xuiUserId2  Int?
+  ipAddress   String?
+  fingerprint String?
+  userAgent   String?          @db.Text
+  confidence  Float            // 0-100%
+  status      FraudAlertStatus @default(PENDENTE)
+  notes       String?          @db.Text
+  detectedAt  DateTime         @default(now())
+  resolvedAt  DateTime?
+
+  @@index([userId])
+  @@index([status])
+  @@map("fraud_alerts")
+}
+
+// ========================
+// PAGAMENTOS PIX
+// ========================
+
+enum PaymentStatus {
+  PENDENTE
+  PAGO
+  CANCELADO
+  EXPIRADO
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  fromUserId    String
+  toUserId      String
+  amount        Decimal       @db.Decimal(10, 2)
+  credits       Decimal       @db.Decimal(10, 2)
+  status        PaymentStatus @default(PENDENTE)
+  gateway       String        // EFIBANK, ASAAS, MERCADOPAGO
+  gatewayTxId   String?
+  pixCode       String?       @db.Text
+  pixQrCode     String?       @db.Text
+  expiresAt     DateTime?
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([status])
+  @@map("payments")
+}
+
+// ========================
+// NOVIDADES (cache local do XUI)
+// ========================
+
+model ContentUpdate {
+  id          String   @id @default(cuid())
+  xuiId       Int      @unique
+  type        String   // CANAL, FILME, SERIE
+  name        String
+  category    String?
+  thumbnail   String?
+  addedAt     DateTime
+  createdAt   DateTime @default(now())
+
+  @@map("content_updates")
+}
