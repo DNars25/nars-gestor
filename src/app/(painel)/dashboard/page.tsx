@@ -40,7 +40,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchStats()
-    const interval = setInterval(fetchStats, 60000) // atualizar a cada minuto
+    const interval = setInterval(fetchStats, 60000)
     return () => clearInterval(interval)
   }, [])
 
@@ -52,15 +52,15 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">
-            {greeting()}, {user?.username}!
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            {greeting()}, <span className="text-orange-400">{user?.username}</span>!
           </h1>
-          <p className="text-white/40 text-sm mt-0.5">
-            Visão geral do sistema IPTV
+          <p className="text-white/40 text-[14px] mt-1">
+            Visão geral do sistema IPTV — atualiza a cada 60 segundos
           </p>
         </div>
         <Button
@@ -68,9 +68,9 @@ export default function DashboardPage() {
           size="sm"
           onClick={fetchStats}
           disabled={loading}
-          className="border-white/10 text-white/60 hover:text-white hover:bg-white/5"
+          className="border-white/10 bg-white/4 text-white/60 hover:text-white hover:bg-white/8 gap-2 h-10 px-4 rounded-xl text-[13px]"
         >
-          <RefreshCw size={14} className={loading ? 'animate-spin mr-2' : 'mr-2'} />
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           Atualizar
         </Button>
       </div>
@@ -79,7 +79,7 @@ export default function DashboardPage() {
       <StatsCards stats={stats} isLoading={loading} />
 
       {/* Charts + Health */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         <div className="xl:col-span-2">
           <ClientsChart
             data={stats?.newClientsChart || []}

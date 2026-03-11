@@ -32,16 +32,37 @@ interface ClientTableProps {
   onRefresh: () => void
 }
 
-function getStatus(client: XuiUser): { label: string; color: string; icon: React.ReactNode } {
-  if (client.enabled === 0) return { label: 'Bloqueado', color: 'text-red-400', icon: <XCircle size={12} /> }
-  if (client.is_trial) return { label: 'Teste', color: 'text-yellow-400', icon: <Clock size={12} /> }
-  if (client.exp_date && client.exp_date < Date.now()) return { label: 'Expirado', color: 'text-orange-400', icon: <XCircle size={12} /> }
-  return { label: 'Ativo', color: 'text-green-400', icon: <CheckCircle2 size={12} /> }
+function getStatus(client: XuiUser): { label: string; className: string; icon: React.ReactNode } {
+  if (client.enabled === 0) return {
+    label: 'Bloqueado',
+    className: 'bg-red-500/10 text-red-400 border-red-500/20',
+    icon: <XCircle size={12} />,
+  }
+  if (client.is_trial) return {
+    label: 'Teste',
+    className: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+    icon: <Clock size={12} />,
+  }
+  if (client.exp_date && client.exp_date < Date.now()) return {
+    label: 'Expirado',
+    className: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+    icon: <XCircle size={12} />,
+  }
+  return {
+    label: 'Ativo',
+    className: 'bg-green-500/10 text-green-400 border-green-500/20',
+    icon: <CheckCircle2 size={12} />,
+  }
 }
 
 function formatDate(ts: number | null) {
-  if (!ts || ts === 0) return 'Sem data'
+  if (!ts || ts === 0) return '—'
   return format(new Date(ts), 'dd/MM/yyyy', { locale: ptBR })
+}
+
+function isExpiringSoon(ts: number | null): boolean {
+  if (!ts || ts === 0) return false
+  return ts > Date.now() && ts < Date.now() + 7 * 24 * 60 * 60 * 1000
 }
 
 export function ClientTable({ clients, onRefresh }: ClientTableProps) {
@@ -110,114 +131,126 @@ export function ClientTable({ clients, onRefresh }: ClientTableProps) {
 
   if (clients.length === 0) {
     return (
-      <div className="py-12 text-center text-white/30">
-        Nenhum cliente encontrado
+      <div className="py-20 text-center">
+        <p className="text-white/30 text-base">Nenhum cliente encontrado</p>
       </div>
     )
   }
 
   return (
     <>
-      <div className="rounded-lg border border-white/10 overflow-hidden">
+      <div className="rounded-2xl border border-white/8 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead className="text-white/50 text-xs uppercase tracking-wider">Usuário</TableHead>
-              <TableHead className="text-white/50 text-xs uppercase tracking-wider">Senha</TableHead>
-              <TableHead className="text-white/50 text-xs uppercase tracking-wider">Vencimento</TableHead>
-              <TableHead className="text-white/50 text-xs uppercase tracking-wider">Conexões</TableHead>
-              <TableHead className="text-white/50 text-xs uppercase tracking-wider">Status</TableHead>
-              <TableHead className="text-white/50 text-xs uppercase tracking-wider text-right">Ações</TableHead>
+            <TableRow className="border-white/8 hover:bg-transparent bg-white/3">
+              <TableHead className="text-white/45 text-[12px] font-semibold uppercase tracking-wider py-4 px-5">Usuário</TableHead>
+              <TableHead className="text-white/45 text-[12px] font-semibold uppercase tracking-wider py-4">Senha</TableHead>
+              <TableHead className="text-white/45 text-[12px] font-semibold uppercase tracking-wider py-4">Vencimento</TableHead>
+              <TableHead className="text-white/45 text-[12px] font-semibold uppercase tracking-wider py-4">Conexões</TableHead>
+              <TableHead className="text-white/45 text-[12px] font-semibold uppercase tracking-wider py-4">Status</TableHead>
+              <TableHead className="text-white/45 text-[12px] font-semibold uppercase tracking-wider py-4 pr-5 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {clients.map(client => {
               const status = getStatus(client)
+              const expiring = isExpiringSoon(client.exp_date)
               const isLoading = loading[client.id]
               return (
-                <TableRow key={client.id} className="border-white/5 hover:bg-white/3">
-                  <TableCell className="font-mono text-sm text-white py-3">
+                <TableRow
+                  key={client.id}
+                  className={cn(
+                    'border-white/5 transition-colors',
+                    expiring ? 'hover:bg-orange-500/3' : 'hover:bg-white/3'
+                  )}
+                >
+                  <TableCell className="font-mono text-[14px] text-white py-4 px-5 font-semibold">
                     {client.username}
+                    {expiring && (
+                      <span className="ml-2 text-[10px] text-orange-400 bg-orange-500/10 border border-orange-500/20 px-1.5 py-0.5 rounded-full">
+                        expira em breve
+                      </span>
+                    )}
                   </TableCell>
-                  <TableCell className="font-mono text-sm text-white/50 py-3">
+                  <TableCell className="font-mono text-[13px] text-white/45 py-4">
                     {client.password}
                   </TableCell>
-                  <TableCell className="text-sm text-white/70 py-3">
+                  <TableCell className={cn('text-[14px] py-4', expiring ? 'text-orange-400 font-medium' : 'text-white/65')}>
                     {formatDate(client.exp_date)}
                   </TableCell>
-                  <TableCell className="text-sm text-white/70 py-3">
-                    {client.max_connections}
+                  <TableCell className="text-[14px] text-white/65 py-4">
+                    {client.max_connections}x
                   </TableCell>
-                  <TableCell className="py-3">
-                    <div className={cn('flex items-center gap-1.5 text-xs font-medium', status.color)}>
+                  <TableCell className="py-4">
+                    <span className={cn(
+                      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] font-semibold border',
+                      status.className
+                    )}>
                       {status.icon}
                       {status.label}
-                    </div>
+                    </span>
                   </TableCell>
-                  <TableCell className="py-3 text-right">
+                  <TableCell className="py-4 pr-5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      {/* Renovar rápido */}
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => setRenewDialog({ client, months: 1 })}
                         disabled={isLoading}
-                        className="h-7 px-2 text-white/50 hover:text-green-400 hover:bg-green-500/10"
+                        className="h-9 w-9 p-0 text-white/40 hover:text-green-400 hover:bg-green-500/10 rounded-xl"
                         title="Renovar"
                       >
-                        <RefreshCw size={13} />
+                        <RefreshCw size={15} />
                       </Button>
 
-                      {/* Bloquear/Desbloquear */}
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => handleToggleBlock(client)}
                         disabled={isLoading}
                         className={cn(
-                          'h-7 px-2',
+                          'h-9 w-9 p-0 rounded-xl',
                           client.enabled === 0
-                            ? 'text-white/50 hover:text-green-400 hover:bg-green-500/10'
-                            : 'text-white/50 hover:text-yellow-400 hover:bg-yellow-500/10'
+                            ? 'text-white/40 hover:text-green-400 hover:bg-green-500/10'
+                            : 'text-white/40 hover:text-yellow-400 hover:bg-yellow-500/10'
                         )}
                         title={client.enabled === 0 ? 'Desbloquear' : 'Bloquear'}
                       >
-                        {client.enabled === 0 ? <Unlock size={13} /> : <Lock size={13} />}
+                        {client.enabled === 0 ? <Unlock size={15} /> : <Lock size={15} />}
                       </Button>
 
-                      {/* Menu mais opções */}
                       <DropdownMenu>
                         <DropdownMenuTrigger
-                          className="inline-flex items-center justify-center h-7 w-7 rounded-md text-white/50 hover:text-white hover:bg-white/5 transition-colors"
+                          className="inline-flex items-center justify-center h-9 w-9 rounded-xl text-white/40 hover:text-white hover:bg-white/8 transition-colors"
                         >
-                          <MoreHorizontal size={13} />
+                          <MoreHorizontal size={15} />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
                           align="end"
-                          className="bg-[#1a1d24] border-white/10 text-white/80 text-sm"
+                          className="bg-[#1a1e29] border-white/10 text-white min-w-[180px]"
                         >
-                          <DropdownMenuItem className="hover:bg-white/5 cursor-pointer gap-2">
-                            <Edit size={13} /> Editar Linha
+                          <DropdownMenuItem className="hover:bg-white/6 cursor-pointer gap-2.5 py-2.5 text-[13px]">
+                            <Edit size={14} className="text-white/50" /> Editar Linha
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="hover:bg-white/5 cursor-pointer gap-2">
-                            <Info size={13} /> Informações da Linha
+                          <DropdownMenuItem className="hover:bg-white/6 cursor-pointer gap-2.5 py-2.5 text-[13px]">
+                            <Info size={14} className="text-white/50" /> Informações
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="hover:bg-white/5 cursor-pointer gap-2">
-                            <Activity size={13} /> Log da Linha
+                          <DropdownMenuItem className="hover:bg-white/6 cursor-pointer gap-2.5 py-2.5 text-[13px]">
+                            <Activity size={14} className="text-white/50" /> Log da Linha
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-white/10" />
+                          <DropdownMenuSeparator className="bg-white/8" />
                           <DropdownMenuItem
                             onClick={() => setRenewDialog({ client, months: 1 })}
-                            className="hover:bg-white/5 cursor-pointer gap-2 text-green-400"
+                            className="hover:bg-green-500/10 cursor-pointer gap-2.5 py-2.5 text-[13px] text-green-400"
                           >
-                            <RefreshCw size={13} /> Renovar
+                            <RefreshCw size={14} /> Renovar
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-white/10" />
+                          <DropdownMenuSeparator className="bg-white/8" />
                           <DropdownMenuItem
                             onClick={() => { setDeleteDialog(client); setDeleteConfirm('') }}
-                            className="hover:bg-red-500/10 cursor-pointer gap-2 text-red-400"
+                            className="hover:bg-red-500/10 cursor-pointer gap-2.5 py-2.5 text-[13px] text-red-400"
                           >
-                            <Trash2 size={13} /> Excluir Linha
+                            <Trash2 size={14} /> Excluir Linha
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -232,41 +265,40 @@ export function ClientTable({ clients, onRefresh }: ClientTableProps) {
 
       {/* Renovar Dialog */}
       <Dialog open={!!renewDialog} onOpenChange={() => setRenewDialog(null)}>
-        <DialogContent className="bg-[#13161d] border-white/10 text-white">
+        <DialogContent className="bg-[#13161d] border-white/10 text-white max-w-sm">
           <DialogHeader>
-            <DialogTitle>Renovar Cliente</DialogTitle>
-            <DialogDescription className="text-white/50">
-              Renova a assinatura de <span className="text-orange-400 font-mono">{renewDialog?.client.username}</span>
+            <DialogTitle className="text-lg">Renovar Cliente</DialogTitle>
+            <DialogDescription className="text-white/50 text-[14px]">
+              Renovar assinatura de <span className="text-orange-400 font-mono font-semibold">{renewDialog?.client.username}</span>
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-4 gap-2 py-2">
             {[1, 3, 6, 12].map(m => (
-              <Button
+              <button
                 key={m}
-                variant={renewDialog?.months === m ? 'default' : 'outline'}
                 onClick={() => setRenewDialog(prev => prev ? { ...prev, months: m } : null)}
                 className={cn(
-                  'h-16 flex-col gap-1',
+                  'py-4 rounded-xl border flex flex-col items-center gap-1 transition-all',
                   renewDialog?.months === m
-                    ? 'bg-orange-500 hover:bg-orange-600 border-orange-500'
-                    : 'border-white/10 hover:bg-white/5 bg-transparent text-white'
+                    ? 'bg-orange-500/20 border-orange-500/50 text-orange-400'
+                    : 'border-white/10 text-white/50 hover:border-white/25 hover:text-white'
                 )}
               >
                 <span className="text-2xl font-bold">{m}</span>
-                <span className="text-xs">{m === 1 ? 'mês' : 'meses'}</span>
-              </Button>
+                <span className="text-[11px]">{m === 1 ? 'mês' : 'meses'}</span>
+              </button>
             ))}
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setRenewDialog(null)} className="text-white/60">
+            <Button variant="ghost" onClick={() => setRenewDialog(null)} className="text-white/50">
               Cancelar
             </Button>
             <Button
               onClick={() => renewDialog && handleRenew(renewDialog.client, renewDialog.months)}
               disabled={!renewDialog || loading[renewDialog?.client.id]}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="bg-green-600 hover:bg-green-700 text-white px-6"
             >
-              Confirmar Renovação
+              Confirmar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -274,33 +306,34 @@ export function ClientTable({ clients, onRefresh }: ClientTableProps) {
 
       {/* Delete Dialog */}
       <Dialog open={!!deleteDialog} onOpenChange={() => { setDeleteDialog(null); setDeleteConfirm('') }}>
-        <DialogContent className="bg-[#13161d] border-white/10 text-white">
+        <DialogContent className="bg-[#13161d] border-white/10 text-white max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-red-400">Excluir Cliente</DialogTitle>
-            <DialogDescription className="text-white/50">
-              Esta ação é irreversível. Para confirmar, digite o nome do usuário:
-              <span className="font-mono text-white ml-1">{deleteDialog?.username}</span>
+            <DialogTitle className="text-red-400 text-lg">Excluir Cliente</DialogTitle>
+            <DialogDescription className="text-white/50 text-[14px]">
+              Esta ação é irreversível. Digite o nome do usuário para confirmar:
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label className="text-white/70">Nome do usuário</Label>
+            <Label className="text-white/60 text-[13px]">
+              Nome: <span className="font-mono text-white/80">{deleteDialog?.username}</span>
+            </Label>
             <Input
               value={deleteConfirm}
               onChange={e => setDeleteConfirm(e.target.value)}
               placeholder={deleteDialog?.username}
-              className="bg-white/5 border-red-500/30 text-white focus-visible:ring-red-500/50"
+              className="bg-white/5 border-red-500/30 text-white h-11 focus-visible:ring-red-500/40 text-[14px]"
             />
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setDeleteDialog(null)} className="text-white/60">
+            <Button variant="ghost" onClick={() => setDeleteDialog(null)} className="text-white/50">
               Cancelar
             </Button>
             <Button
               onClick={handleDelete}
               disabled={deleteConfirm !== deleteDialog?.username || loading[deleteDialog?.id || 0]}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-red-600 hover:bg-red-700 text-white px-6"
             >
-              Excluir Definitivamente
+              Excluir
             </Button>
           </DialogFooter>
         </DialogContent>

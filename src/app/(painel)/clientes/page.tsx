@@ -7,7 +7,6 @@ import { CreateClientDialog } from '@/components/clients/create-client-dialog'
 import { TrialDialog } from '@/components/clients/trial-dialog'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { UserPlus, FlaskConical, Search, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { XuiUser } from '@/lib/xui-db'
@@ -55,33 +54,38 @@ export default function ClientesPage() {
     return () => clearTimeout(timer)
   }, [fetchClients, search])
 
-  function handleStatusChange(val: string) {
-    setStatus(val as StatusFilter)
-    setPage(1)
+  const tabCounts = {
+    all: data?.total,
+    active: undefined,
+    expired: undefined,
+    blocked: undefined,
+    trial: undefined,
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className="space-y-6">
+      {/* Page header */}
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-white">Clientes</h1>
-          <p className="text-white/40 text-sm">
-            {data ? `${data.total.toLocaleString()} clientes no total` : 'Carregando...'}
+          <h1 className="text-2xl font-bold text-white tracking-tight">Clientes</h1>
+          <p className="text-white/40 text-[14px] mt-1">
+            {data
+              ? `${data.total.toLocaleString('pt-BR')} cliente${data.total !== 1 ? 's' : ''} encontrado${data.total !== 1 ? 's' : ''}`
+              : 'Carregando...'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 flex-shrink-0">
           <Button
             onClick={() => setTrialOpen(true)}
             variant="outline"
-            className="border-white/10 text-white/70 hover:text-white hover:bg-white/5 gap-2"
+            className="border-white/12 bg-white/4 text-white/70 hover:text-white hover:bg-white/8 gap-2 h-10 px-4 text-[13px] font-medium rounded-xl"
           >
             <FlaskConical size={15} />
             Novo Teste
           </Button>
           <Button
             onClick={() => setCreateOpen(true)}
-            className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
+            className="bg-orange-500 hover:bg-orange-600 text-white gap-2 h-10 px-5 text-[13px] font-semibold rounded-xl shadow-lg shadow-orange-500/20"
           >
             <UserPlus size={15} />
             Novo Cliente
@@ -89,35 +93,38 @@ export default function ClientesPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters bar */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-48 max-w-sm">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+        <div className="relative min-w-[260px] flex-1 max-w-sm">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
           <Input
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1) }}
             placeholder="Buscar por username..."
-            className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-white/20 h-9 focus-visible:ring-orange-500/50"
+            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/25 h-10 text-[14px] focus-visible:ring-orange-500/40 rounded-xl"
           />
         </div>
 
-        <Tabs value={status} onValueChange={handleStatusChange}>
-          <TabsList className="bg-white/5 border border-white/10 h-9">
-            <TabsTrigger value="all" className="text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-              Todos
-            </TabsTrigger>
-            <TabsTrigger value="active" className="text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-              Ativos
-            </TabsTrigger>
-            <TabsTrigger value="expired" className="text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-              Expirados
-            </TabsTrigger>
-            <TabsTrigger value="blocked" className="text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-              Bloqueados
-            </TabsTrigger>
-            <TabsTrigger value="trial" className="text-xs data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-              Testes
-            </TabsTrigger>
+        <Tabs value={status} onValueChange={v => { setStatus(v as StatusFilter); setPage(1) }}>
+          <TabsList className="bg-white/5 border border-white/10 h-10 rounded-xl p-1">
+            {[
+              { value: 'all', label: 'Todos' },
+              { value: 'active', label: 'Ativos' },
+              { value: 'expired', label: 'Expirados' },
+              { value: 'blocked', label: 'Bloqueados' },
+              { value: 'trial', label: 'Testes' },
+            ].map(tab => (
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                className="text-[13px] font-medium px-3 h-8 data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-sm rounded-lg"
+              >
+                {tab.label}
+                {tab.value === 'all' && tabCounts.all !== undefined && (
+                  <span className="ml-1.5 text-[11px] opacity-60">({tabCounts.all})</span>
+                )}
+              </TabsTrigger>
+            ))}
           </TabsList>
         </Tabs>
 
@@ -126,9 +133,10 @@ export default function ClientesPage() {
           size="sm"
           onClick={fetchClients}
           disabled={loading}
-          className="text-white/40 hover:text-white h-9"
+          className="text-white/40 hover:text-white h-10 w-10 p-0 rounded-xl"
+          title="Atualizar"
         >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
         </Button>
       </div>
 
@@ -136,7 +144,7 @@ export default function ClientesPage() {
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-12 bg-white/5 rounded animate-pulse" />
+            <div key={i} className="h-14 bg-white/4 rounded-2xl animate-pulse" />
           ))}
         </div>
       ) : (
@@ -146,8 +154,8 @@ export default function ClientesPage() {
       {/* Pagination */}
       {data && data.pages > 1 && (
         <div className="flex items-center justify-between pt-2">
-          <p className="text-xs text-white/40">
-            Página {data.page} de {data.pages} ({data.total} total)
+          <p className="text-[13px] text-white/35">
+            Mostrando {Math.min((page - 1) * 50 + 1, data.total)}–{Math.min(page * 50, data.total)} de {data.total.toLocaleString('pt-BR')}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -155,21 +163,21 @@ export default function ClientesPage() {
               size="sm"
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="border-white/10 text-white/60 hover:text-white h-8"
+              className="border-white/10 bg-white/4 text-white/60 hover:text-white h-9 w-9 p-0 rounded-xl"
             >
-              <ChevronLeft size={14} />
+              <ChevronLeft size={15} />
             </Button>
-            <Badge variant="outline" className="border-white/10 text-white/60 text-xs">
-              {page}
-            </Badge>
+            <span className="text-[13px] text-white/50 px-2">
+              {page} / {data.pages}
+            </span>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setPage(p => Math.min(data.pages, p + 1))}
               disabled={page >= data.pages}
-              className="border-white/10 text-white/60 hover:text-white h-8"
+              className="border-white/10 bg-white/4 text-white/60 hover:text-white h-9 w-9 p-0 rounded-xl"
             >
-              <ChevronRight size={14} />
+              <ChevronRight size={15} />
             </Button>
           </div>
         </div>

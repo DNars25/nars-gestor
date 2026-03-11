@@ -1,15 +1,14 @@
 'use client'
 
-import { Users, Wifi, Clock, AlertTriangle, Network, TrendingUp } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
+import { Users, Wifi, Clock, AlertTriangle, Network, TrendingUp, ShoppingBag } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface StatCard {
   title: string
   value: number | string
   icon: React.ReactNode
-  color: string
-  bgColor: string
+  gradient: string
+  iconBg: string
   description?: string
 }
 
@@ -26,47 +25,47 @@ interface StatsCardsProps {
   isLoading: boolean
 }
 
-function StatCard({ title, value, icon, color, bgColor, description }: StatCard) {
+function StatCard({ title, value, icon, gradient, iconBg, description }: StatCard) {
   return (
-    <Card className="bg-[#13161d] border-white/10 hover:border-white/20 transition-colors">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-xs text-white/50 uppercase tracking-wider">{title}</p>
-            <p className={cn('text-3xl font-bold mt-1', color)}>
-              {value}
-            </p>
-            {description && (
-              <p className="text-xs text-white/40 mt-1">{description}</p>
-            )}
-          </div>
-          <div className={cn('p-2.5 rounded-xl', bgColor)}>
-            <span className={color}>{icon}</span>
-          </div>
+    <div className={cn(
+      'relative rounded-2xl p-6 border overflow-hidden transition-all duration-200 hover:scale-[1.01]',
+      'bg-[#13161d] border-white/8 hover:border-white/15'
+    )}>
+      {/* Subtle gradient glow */}
+      <div className={cn('absolute inset-0 opacity-5', gradient)} />
+
+      <div className="relative flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <p className="text-[12px] font-semibold text-white/45 uppercase tracking-widest mb-3">{title}</p>
+          <p className="text-4xl font-bold text-white leading-none mb-2">
+            {typeof value === 'number' ? value.toLocaleString('pt-BR') : value}
+          </p>
+          {description && (
+            <p className="text-[13px] text-white/35 mt-1">{description}</p>
+          )}
         </div>
-      </CardContent>
-    </Card>
+        <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0', iconBg)}>
+          {icon}
+        </div>
+      </div>
+    </div>
   )
 }
 
 function SkeletonCard() {
   return (
-    <Card className="bg-[#13161d] border-white/10">
-      <CardContent className="p-5">
-        <div className="animate-pulse">
-          <div className="h-3 bg-white/10 rounded w-24 mb-3" />
-          <div className="h-8 bg-white/10 rounded w-16 mb-2" />
-          <div className="h-3 bg-white/10 rounded w-20" />
-        </div>
-      </CardContent>
-    </Card>
+    <div className="rounded-2xl p-6 bg-[#13161d] border border-white/8 animate-pulse">
+      <div className="h-3 bg-white/10 rounded w-20 mb-4" />
+      <div className="h-10 bg-white/10 rounded w-24 mb-3" />
+      <div className="h-3 bg-white/10 rounded w-16" />
+    </div>
   )
 }
 
 export function StatsCards({ stats, isLoading }: StatsCardsProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5">
         {Array.from({ length: 7 }).map((_, i) => <SkeletonCard key={i} />)}
       </div>
     )
@@ -75,61 +74,61 @@ export function StatsCards({ stats, isLoading }: StatsCardsProps) {
   const cards: StatCard[] = [
     {
       title: 'Online Agora',
-      value: stats?.onlineNow || 0,
-      icon: <Wifi size={20} />,
-      color: 'text-green-400',
-      bgColor: 'bg-green-500/10',
+      value: stats?.onlineNow ?? 0,
+      icon: <Wifi size={22} className="text-green-400" />,
+      gradient: 'bg-gradient-to-br from-green-500 to-emerald-600',
+      iconBg: 'bg-green-500/15 border border-green-500/20',
       description: 'nos últimos 5 min',
     },
     {
       title: 'Total de Clientes',
-      value: stats?.totalClients || 0,
-      icon: <Users size={20} />,
-      color: 'text-blue-400',
-      bgColor: 'bg-blue-500/10',
+      value: stats?.totalClients ?? 0,
+      icon: <Users size={22} className="text-blue-400" />,
+      gradient: 'bg-gradient-to-br from-blue-500 to-indigo-600',
+      iconBg: 'bg-blue-500/15 border border-blue-500/20',
     },
     {
       title: 'Clientes Ativos',
-      value: stats?.activeClients || 0,
-      icon: <TrendingUp size={20} />,
-      color: 'text-emerald-400',
-      bgColor: 'bg-emerald-500/10',
+      value: stats?.activeClients ?? 0,
+      icon: <TrendingUp size={22} className="text-emerald-400" />,
+      gradient: 'bg-gradient-to-br from-emerald-500 to-teal-600',
+      iconBg: 'bg-emerald-500/15 border border-emerald-500/20',
     },
     {
       title: 'Em Teste',
-      value: stats?.trialClients || 0,
-      icon: <Clock size={20} />,
-      color: 'text-yellow-400',
-      bgColor: 'bg-yellow-500/10',
+      value: stats?.trialClients ?? 0,
+      icon: <Clock size={22} className="text-yellow-400" />,
+      gradient: 'bg-gradient-to-br from-yellow-500 to-amber-600',
+      iconBg: 'bg-yellow-500/15 border border-yellow-500/20',
     },
     {
       title: 'Expirando em 7d',
-      value: stats?.expiringClients || 0,
-      icon: <AlertTriangle size={20} />,
-      color: 'text-orange-400',
-      bgColor: 'bg-orange-500/10',
-      description: 'requer renovação',
+      value: stats?.expiringClients ?? 0,
+      icon: <AlertTriangle size={22} className="text-orange-400" />,
+      gradient: 'bg-gradient-to-br from-orange-500 to-red-600',
+      iconBg: 'bg-orange-500/15 border border-orange-500/20',
+      description: 'renovação necessária',
     },
     {
       title: 'Masters',
-      value: stats?.mastersCount || 0,
-      icon: <Network size={20} />,
-      color: 'text-purple-400',
-      bgColor: 'bg-purple-500/10',
-      description: 'ativos',
+      value: stats?.mastersCount ?? 0,
+      icon: <Network size={22} className="text-purple-400" />,
+      gradient: 'bg-gradient-to-br from-purple-500 to-violet-600',
+      iconBg: 'bg-purple-500/15 border border-purple-500/20',
+      description: 'ativos na rede',
     },
     {
       title: 'Revendas',
-      value: stats?.revendasCount || 0,
-      icon: <Network size={20} />,
-      color: 'text-pink-400',
-      bgColor: 'bg-pink-500/10',
-      description: 'ativas',
+      value: stats?.revendasCount ?? 0,
+      icon: <ShoppingBag size={22} className="text-pink-400" />,
+      gradient: 'bg-gradient-to-br from-pink-500 to-rose-600',
+      iconBg: 'bg-pink-500/15 border border-pink-500/20',
+      description: 'ativas na rede',
     },
   ]
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5">
       {cards.map(card => <StatCard key={card.title} {...card} />)}
     </div>
   )

@@ -122,8 +122,12 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
   html {
     @apply font-sans;
+    font-size: 15px;
   }
 }
