@@ -1,82 +1,16 @@
-import axios, { AxiosInstance } from 'axios'
+import { xuiQuery, xuiExecute } from '@/lib/xui-db'
+import type { XuiLine } from '@/lib/xui-db'
 
-const XUI_API_URL = process.env.XUI_API_URL || 'http://127.0.0.1:8181'
-const XUI_API_USER = process.env.XUI_API_USER || 'nars_admin'
-const XUI_API_PASS = process.env.XUI_API_PASS || 'XuiPass2024x'
-
-let sessionCookie: string | null = null
-let lastLoginAt: number = 0
-const SESSION_TTL = 20 * 60 * 1000 // 20 minutos
-
-const xuiClient: AxiosInstance = axios.create({
-  baseURL: XUI_API_URL,
-  timeout: 10000,
-  withCredentials: true,
-})
-
-async function login(): Promise<void> {
-  const res = await xuiClient.post('/login', {
-    username: XUI_API_USER,
-    password: XUI_API_PASS,
-  })
-
-  const setCookie = res.headers['set-cookie']
-  if (setCookie && setCookie.length > 0) {
-    sessionCookie = setCookie[0].split(';')[0]
-    lastLoginAt = Date.now()
-  } else {
-    throw new Error('XUI API: falha no login, cookie não retornado')
-  }
-}
-
-async function ensureSession(): Promise<void> {
-  const isExpired = Date.now() - lastLoginAt > SESSION_TTL
-  if (!sessionCookie || isExpired) {
-    await login()
-  }
-}
-
-async function xuiRequest<T = unknown>(
-  method: 'GET' | 'POST',
-  endpoint: string,
-  data?: Record<string, unknown>
-): Promise<T> {
-  await ensureSession()
-
+// Normaliza bouquet para JSON array string ex: "1" → '["1"]', '["1"]' → '["1"]'
+function normalizeBouquet(bouquet: string): string {
   try {
-    const res = await xuiClient.request({
-      method,
-      url: endpoint,
-      data,
-      headers: {
-        Cookie: sessionCookie!,
-        'Content-Type': 'application/json',
-      },
-    })
-    return res.data as T
-  } catch (err: unknown) {
-    // 401 → re-login e retry
-    if (axios.isAxiosError(err) && err.response?.status === 401) {
-      sessionCookie = null
-      await login()
-      const res = await xuiClient.request({
-        method,
-        url: endpoint,
-        data,
-        headers: {
-          Cookie: sessionCookie!,
-          'Content-Type': 'application/json',
-        },
-      })
-      return res.data as T
-    }
-    throw err
+    const parsed = JSON.parse(bouquet)
+    if (Array.isArray(parsed)) return bouquet
+  } catch {
+    // não é JSON — tratar como ID simples
   }
+  return JSON.stringify([bouquet])
 }
-
-// ========================
-// API PÚBLICA DO XUI
-// ========================
 
 export interface XuiCreateLinePayload {
   username: string
@@ -105,30 +39,70 @@ export type XuiUpdateUserPayload = XuiUpdateLinePayload
 
 export const xuiApi = {
   async createUser(payload: XuiCreateLinePayload) {
-    return xuiRequest('POST', '/api/line/create', payload as unknown as Record<string, unknown>)
+    const nowSec = Math.floor(Date.now() / 1000)
+    const bouquet = normalizeBouquet(payload.bouquet)
+
+    const result = await xuiExecute(
+      `INSERT INTO \`lines\`
+        (username, password, exp_date, enabled, admin_enabled, max_connections, is_trial, bouquet, member_id, created_at)
+       VALUES (?, ?, ?, 1, 1, ?, ?, ?, ?, ?)`,
+      [
+        payload.username,
+        payload.password,
+        payload.exp_date,
+        payload.max_connections,
+        payload.is_trial ?? 0,
+        bouquet,
+        payload.member_id ?? 1,
+        nowSec,
+      ]
+    )
+
+    return { id: result.insertId, username: payload.username }
   },
 
   async updateUser(payload: XuiUpdateLinePayload) {
-    return xuiRequest('POST', '/api/line/update', payload as unknown as Record<string, unknown>)
+    const sets: string[] = []
+    const params: (string | number | boolean | null)[] = []
+
+    if (payload.username !== undefined) { sets.push('username = ?'); params.push(payload.username) }
+    if (payload.password !== undefined) { sets.push('password = ?'); params.push(payload.password) }
+    if (payload.exp_date !== undefined) { sets.push('exp_date = ?'); params.push(payload.exp_date) }
+    if (payload.enabled !== undefined) { sets.push('enabled = ?'); params.push(payload.enabled) }
+    if (payload.max_connections !== undefined) { sets.push('max_connections = ?'); params.push(payload.max_connections) }
+    if (payload.bouquet !== undefined) { sets.push('bouquet = ?'); params.push(normalizeBouquet(payload.bouquet)) }
+    if (payload.member_id !== undefined) { sets.push('member_id = ?'); params.push(payload.member_id) }
+
+    if (sets.length === 0) return { success: true }
+
+    params.push(payload.id)
+    await xuiExecute(`UPDATE \`lines\` SET ${sets.join(', ')} WHERE id = ?`, params)
+    return { success: true }
   },
 
   async deleteUser(id: number) {
-    return xuiRequest('POST', '/api/line/delete', { id })
+    await xuiExecute('DELETE FROM `lines` WHERE id = ?', [id])
+    return { success: true }
   },
 
   async blockUser(id: number) {
-    return xuiRequest('POST', '/api/line/update', { id, enabled: 0 })
+    await xuiExecute('UPDATE `lines` SET enabled = 0 WHERE id = ?', [id])
+    return { success: true }
   },
 
   async unblockUser(id: number) {
-    return xuiRequest('POST', '/api/line/update', { id, enabled: 1 })
+    await xuiExecute('UPDATE `lines` SET enabled = 1 WHERE id = ?', [id])
+    return { success: true }
   },
 
   async renewUser(id: number, newExpDate: number) {
-    return xuiRequest('POST', '/api/line/update', { id, exp_date: newExpDate })
+    await xuiExecute('UPDATE `lines` SET exp_date = ? WHERE id = ?', [newExpDate, id])
+    return { success: true }
   },
+}
 
-  async getServerStats() {
-    return xuiRequest('GET', '/server/stats')
-  },
+// Verificar se username já está em uso (read-only)
+export async function checkUsernameExists(username: string): Promise<boolean> {
+  const rows = await xuiQuery<Pick<XuiLine, 'id'>>('SELECT id FROM `lines` WHERE username = ?', [username])
+  return rows.length > 0
 }

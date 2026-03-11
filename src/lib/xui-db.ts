@@ -1,6 +1,7 @@
 import mysql from 'mysql2/promise'
 
 let xuiPool: mysql.Pool | null = null
+let xuiWritePool: mysql.Pool | null = null
 
 export function getXuiPool(): mysql.Pool {
   if (!xuiPool) {
@@ -12,6 +13,15 @@ export function getXuiPool(): mysql.Pool {
   return xuiPool
 }
 
+export function getXuiWritePool(): mysql.Pool {
+  if (!xuiWritePool) {
+    const url = process.env.XUI_DB_WRITE_URL
+    if (!url) throw new Error('XUI_DB_WRITE_URL não configurado no .env')
+    xuiWritePool = mysql.createPool(url)
+  }
+  return xuiWritePool
+}
+
 export async function xuiQuery<T = unknown>(
   sql: string,
   params?: (string | number | boolean | null)[]
@@ -19,6 +29,15 @@ export async function xuiQuery<T = unknown>(
   const pool = getXuiPool()
   const [rows] = await pool.execute(sql, params)
   return rows as T[]
+}
+
+export async function xuiExecute(
+  sql: string,
+  params?: (string | number | boolean | null)[]
+): Promise<mysql.ResultSetHeader> {
+  const pool = getXuiWritePool()
+  const [result] = await pool.execute(sql, params)
+  return result as mysql.ResultSetHeader
 }
 
 // Tipos do banco XUI — tabela `lines` (clientes IPTV)
