@@ -10,8 +10,11 @@ import { toast } from 'sonner'
 import { useApi } from '@/hooks/use-api'
 import { CheckCircle2, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { copyToClipboard } from '@/lib/clipboard'
 
-const SERVER_URL = process.env.NEXT_PUBLIC_XUI_SERVER_URL || 'http://149.248.46.167:80'
+const XUI_HOST = process.env.NEXT_PUBLIC_XUI_HOST || 'http://149.248.46.167'
+const XUI_PORT = process.env.NEXT_PUBLIC_XUI_PORT || '80'
+const SERVER_URL = `${XUI_HOST}:${XUI_PORT}`
 
 interface TrialResult {
   username: string
@@ -58,9 +61,13 @@ export function TrialDialog({ open, onClose, onSuccess }: TrialDialogProps) {
     }
   }
 
-  function copy(text: string, label: string) {
-    navigator.clipboard.writeText(text)
-    toast.success(`${label} copiado!`)
+  async function copy(text: string, label: string) {
+    try {
+      await copyToClipboard(text)
+      toast.success(`${label} copiado!`)
+    } catch {
+      toast.error(`Falha ao copiar ${label}`)
+    }
   }
 
   const m3uLink = result
@@ -203,13 +210,14 @@ export function TrialDialog({ open, onClose, onSuccess }: TrialDialogProps) {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 text-[11px] space-y-0.5">
                     <p className="text-[10px] text-white/35 uppercase tracking-widest font-semibold mb-1.5">Xtream Codes</p>
-                    <p><span className="text-white/40">Servidor: </span><span className="font-mono text-white/60">{SERVER_URL}</span></p>
+                    <p><span className="text-white/40">Host: </span><span className="font-mono text-white/60">{XUI_HOST.replace(/^https?:\/\//, '')}</span></p>
+                    <p><span className="text-white/40">Porta: </span><span className="font-mono text-white/60">{XUI_PORT}</span></p>
                     <p><span className="text-white/40">Usuário: </span><span className="font-mono text-white/60">{result.username}</span></p>
                     <p><span className="text-white/40">Senha: </span><span className="font-mono text-white/60">{result.password}</span></p>
                   </div>
                   <button
                     onClick={() => copy(
-                      `Servidor: ${SERVER_URL}\nUsuário: ${result.username}\nSenha: ${result.password}`,
+                      `Host: ${XUI_HOST.replace(/^https?:\/\//, '')}\nPorta: ${XUI_PORT}\nUsuário: ${result.username}\nSenha: ${result.password}`,
                       'Dados Xtream'
                     )}
                     className="flex-shrink-0 text-white/30 hover:text-white/70 p-1.5 rounded-lg hover:bg-white/8 transition-colors"

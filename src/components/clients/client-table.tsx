@@ -24,9 +24,12 @@ import {
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useApi } from '@/hooks/use-api'
+import { copyToClipboard } from '@/lib/clipboard'
 import type { XuiUser } from '@/lib/xui-db'
 
-const SERVER_URL = process.env.NEXT_PUBLIC_XUI_SERVER_URL || 'http://149.248.46.167:80'
+const XUI_HOST = process.env.NEXT_PUBLIC_XUI_HOST || 'http://149.248.46.167'
+const XUI_PORT = process.env.NEXT_PUBLIC_XUI_PORT || '80'
+const SERVER_URL = `${XUI_HOST}:${XUI_PORT}`
 
 interface ClientTableProps {
   clients: XuiUser[]
@@ -81,9 +84,13 @@ function getM3uLink(username: string, password: string) {
   return `${SERVER_URL}/get.php?username=${username}&password=${password}&type=m3u_plus&output=ts`
 }
 
-function copy(text: string, label: string) {
-  navigator.clipboard.writeText(text)
-  toast.success(`${label} copiado!`)
+async function copy(text: string, label: string) {
+  try {
+    await copyToClipboard(text)
+    toast.success(`${label} copiado!`)
+  } catch {
+    toast.error(`Falha ao copiar ${label}`)
+  }
 }
 
 export function ClientTable({ clients, onRefresh }: ClientTableProps) {
@@ -284,7 +291,7 @@ export function ClientTable({ clients, onRefresh }: ClientTableProps) {
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => copy(
-                              `Servidor: ${SERVER_URL}\nUsuário: ${client.username}\nSenha: ${client.password}`,
+                              `Host: ${XUI_HOST.replace(/^https?:\/\//, '')}\nPorta: ${XUI_PORT}\nUsuário: ${client.username}\nSenha: ${client.password}`,
                               'Dados Xtream'
                             )}
                             className="hover:bg-blue-500/10 cursor-pointer gap-2.5 py-2.5 text-[13px] text-blue-400"
@@ -383,13 +390,14 @@ export function ClientTable({ clients, onRefresh }: ClientTableProps) {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 text-[12px] space-y-1">
                     <p className="text-[10px] text-white/35 uppercase tracking-widest font-semibold mb-2">Xtream Codes</p>
-                    <p><span className="text-white/40">Servidor: </span><span className="font-mono text-white/65">{SERVER_URL}</span></p>
+                    <p><span className="text-white/40">Host: </span><span className="font-mono text-white/65">{XUI_HOST.replace(/^https?:\/\//, '')}</span></p>
+                    <p><span className="text-white/40">Porta: </span><span className="font-mono text-white/65">{XUI_PORT}</span></p>
                     <p><span className="text-white/40">Usuário: </span><span className="font-mono text-white/65">{linkDialog.username}</span></p>
                     <p><span className="text-white/40">Senha: </span><span className="font-mono text-white/65">{linkDialog.password}</span></p>
                   </div>
                   <button
                     onClick={() => copy(
-                      `Servidor: ${SERVER_URL}\nUsuário: ${linkDialog.username}\nSenha: ${linkDialog.password}`,
+                      `Host: ${XUI_HOST.replace(/^https?:\/\//, '')}\nPorta: ${XUI_PORT}\nUsuário: ${linkDialog.username}\nSenha: ${linkDialog.password}`,
                       'Dados Xtream'
                     )}
                     className="flex-shrink-0 text-white/30 hover:text-white/70 p-1.5 rounded-lg hover:bg-white/8 transition-colors"
